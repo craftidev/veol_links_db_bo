@@ -3,7 +3,7 @@
 # top-most EditorConfig file
 root = true
 
-[*.dart, *.yaml]
+[*.{dart, yaml}]
 indent_size = 2
 
 [*]
