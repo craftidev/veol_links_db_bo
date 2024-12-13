@@ -58,49 +58,140 @@ class _BackOfficeState extends State<BackOffice> {
       body: ListView(
         children: categories.map((category) => buildCategory(category)).toList(),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showCategoryForm();
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: "addCategory",
+            onPressed: () {
+              _showCategoryForm();
+            },
+            tooltip: 'Add Category',
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: "generateHtml",
+            onPressed: () {
+              Null;
+            },
+            tooltip: 'Generate HTML',
+            child: const Icon(Icons.code),
+          ),
+        ]
       ),
     );
   }
 
-  Widget buildCategory(Category category) {
-    return ExpansionTile(
-      title: Text(category.name),
-      children: [
-        ...category.subCategories.map((sub) => buildCategory(sub)).toList(),
-        ...category.links.map((link) => ListTile(
-              title: Text(link.name),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      _showLinkForm(link, category);
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () {
-                      setState(() {
-                        category.links.remove(link);
-                      });
-                    },
-                  ),
-                ],
+  Color _getBackgroundColor(int depth) {
+    return Colors.blue[(100 * (depth % 9 + 1))]!;
+  }
+
+  Widget buildLink(Link link, Category category) {
+    return DragTarget<Link>(
+      onAccept: (draggedLink) {
+        setState(() {
+          // Remove the dragged link from its original category
+          for (var cat in categories) {
+            if (cat.links.remove(draggedLink)) break;
+            for (var sub in cat.subCategories) {
+              if (sub.links.remove(draggedLink)) break;
+            }
+          }
+          // Add the dragged link to this category
+          category.links.add(draggedLink);
+        });
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Draggable<Link>(
+          data: link,
+          feedback: Material(
+            child: Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.green.withOpacity(0.8),
+              child: Text(link.name, style: const TextStyle(color: Colors.white)),
+            ),
+          ),
+          childWhenDragging: Container(
+            color: Colors.grey.withOpacity(0.2),
+            child: Text(link.name, style: const TextStyle(color: Colors.grey)),
+          ),
+          child: ListTile(
+            title: Text(link.name),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    _showLinkForm(link, category);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    setState(() {
+                      category.links.remove(link);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildCategory(Category category, {int depth = 0}) {
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 16.0),
+      child: DragTarget<Category>(
+        onAccept: (draggedCategory) {
+          setState(() {
+            // Remove the dragged category from its original parent
+            categories.remove(draggedCategory);
+            for (var cat in categories) {
+              cat.subCategories.remove(draggedCategory);
+            }
+            // Add the dragged category to this one
+            category.subCategories.add(draggedCategory);
+          });
+        },
+        builder: (context, candidateData, rejectedData) {
+          return ExpansionTile(
+            title: Draggable<Category>(
+              data: category,
+              feedback: Material(
+                child: Container(
+                  color: Colors.blue.withOpacity(0.8),
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(category.name, style: const TextStyle(color: Colors.white)),
+                ),
               ),
-            )),
-        ListTile(
-          title: const Text('+ Add Link'),
-          onTap: () {
-            _showLinkForm(null, category);
-          },
-        ),
-      ],
+              childWhenDragging: Container(
+                color: Colors.grey.withOpacity(0.2),
+                child: Text(category.name, style: const TextStyle(color: Colors.grey)),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(8.0),
+                color: _getBackgroundColor(depth),
+                child: Text(category.name),
+              ),
+            ),
+            children: [
+              ...category.subCategories.map((sub) => buildCategory(sub, depth: depth + 1)).toList(),
+              ...category.links.map((link) => buildLink(link, category)).toList(),
+              ListTile(
+                title: const Text('+ Add Link'),
+                onTap: () {
+                  _showLinkForm(null, category);
+                },
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
